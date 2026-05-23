@@ -1,0 +1,43 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Ruff format check
+        run: uv run ruff format --check forhacker/ tests/ cells/
+
+      - name: Ruff lint
+        run: uv run ruff check forhacker/ tests/ cells/
+
+      - name: Mypy type check
+        run: uv run mypy forhacker/ cells/ --ignore-missing-imports --explicit-package-bases
+
+      - name: Pytest with coverage
+        run: uv run pytest tests/ --cov=forhacker --cov=cells --cov-fail-under=70
+
+      - name: AI Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          skill: superpowers-deepseek-v4:requesting-code-review
